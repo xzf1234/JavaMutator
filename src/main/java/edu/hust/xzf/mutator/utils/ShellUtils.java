@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import edu.hust.xzf.mutator.config.Configuration;
+import org.apache.commons.lang3.StringUtils;
 
 public class ShellUtils {
 
@@ -23,8 +24,8 @@ public class ShellUtils {
 		String fileName;
         String cmd;
         if (System.getProperty("os.name").toLowerCase().startsWith("win")){
-            fileName = Configuration.TEMP_FILES_PATH + buggyProject + ".bat";
-            cmd = Configuration.TEMP_FILES_PATH + buggyProject + ".bat";
+            Process process= Runtime.getRuntime().exec(StringUtils.join(asList," "));
+            return ShellUtils.getShellOut(process, type);
         }
         else {
             fileName = Configuration.TEMP_FILES_PATH + buggyProject + ".sh";
