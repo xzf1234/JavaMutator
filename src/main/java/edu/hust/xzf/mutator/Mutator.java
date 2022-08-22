@@ -14,10 +14,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class Mutator {
@@ -25,8 +30,9 @@ public class Mutator {
     protected Dictionary dic = null;
     protected int patchId = 0;
     protected int comparablePatches = 0;
-
     Configuration config;
+
+    List<String> outerStructures = new ArrayList<>();
 
 
     public Mutator(Configuration config) {
@@ -48,6 +54,17 @@ public class Mutator {
                 }
             }
 //				List<Integer> distinctContextInfo = contextInfoList.stream().distinct().collect(Collectors.toList());
+            // record outer structures
+            try {
+                File outerStructure = new File(FileUtils.tempOuterPath(config.projectPath));
+                FileWriter fw = new FileWriter(outerStructure);
+                List<String> outers = new ArrayList<>();
+                List<String> outer = readOuterStructures(scn.suspCodeAstNode, outers);
+                fw.write(Collections.singletonList(outer).toString());
+                fw.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
 
             // Match fix templates for this suspicious code with its context information.
             mutateWithTemplates(scn, distinctContextInfo);
@@ -66,6 +83,8 @@ public class Mutator {
             boolean operator = false;
 
             for (Integer contextInfo : distinctContextInfo) {
+                if (contextInfo != 24)
+                    continue;
                 if (Checker.isCastExpression(contextInfo)) {
                     ft = new ClassCastChecker();
 
@@ -210,6 +229,7 @@ public class Mutator {
 
 
     protected void testGeneratedPatches(List<Patch> patchCandidates, CodeNode scn) {
+        int patches = 0;
         // Testing generated patches.
         for (Patch patch : patchCandidates) {
             patch.buggyFileName = scn.suspiciousJavaFile;
@@ -223,10 +243,12 @@ public class Mutator {
             if ("===StringIndexOutOfBoundsException===".equals(buggyCode)) continue;
             String patchCode = patch.getFixedCodeStr1();
             scn.targetClassFile.delete();
+            if (buggyCode.equals(patchCode))
+                continue;
 
             log.debug("Compiling");
             try {// Compile patched file.
-                ShellUtils.shellRun(Arrays.asList("javac -Xlint:unchecked -source 1.8 -target 1.8 -cp "
+                ShellUtils.shellRun(Collections.singletonList("javac -Xlint:unchecked -source " + config.JDK_level + " -target " + config.JDK_level + " -cp "
                         + config.projectPath + "/" + config.srcPrefix + StringUtils.join(config.libPaths, System.getProperty("path.separator"))
                         + " -d " + config.projectPath + "/" + config.binPrefix + " " + scn.targetJavaFile.getAbsolutePath()), config.projectPath, 1);
             } catch (IOException e) {
@@ -238,27 +260,57 @@ public class Mutator {
                 continue;
             }
             comparablePatches++;
+            log.debug("successfully compiling!");
+            patches++;
 
-            log.debug("Testing.");
             try {
-                String results = ShellUtils.shellRun(Arrays.asList("java -cp "
-                        + config.projectPath + "/" + config.srcPrefix + StringUtils.join(config.libPaths, System.getProperty("path.separator"))
-                        + " "+config.classPath), config.projectPath, 2);
+                String mutant = "Mutants/" + config.classPath + "#" + config.lineNumber + "#" + comparablePatches + "/";
 
-                if (results.isEmpty()) {
-//					System.err.println(scn.suspiciousJavaFile + "@" + scn.buggyLine);
-//					System.err.println("Bug: " + buggyCode);
-//					System.err.println("Patch: " + patchCode);
-                    continue;
-                } else {
-                    if (results.contains("java.lang.NoClassDefFoundError")) {
-                        log.debug("java.lang.NoClassDefFoundError");
-                    }
-                }
-                log.debug("successfully testing!");
+                File mutantDir = new File(mutant);
+                mutantDir.mkdirs();
+                Path newDir = Paths.get(mutant);
+
+                File patchFile = new File(mutant + "patch.txt");
+                FileWriter fw = new FileWriter(patchFile);
+                if (!patchCode.equals(""))
+                    fw.write(patchCode.substring(1));
+                fw.close();
+
+                Files.move(scn.targetJavaFile.toPath(), newDir.resolve(scn.targetJavaFile.getName()),
+                        StandardCopyOption.REPLACE_EXISTING);
+                Files.move(scn.targetClassFile.toPath(), newDir.resolve(scn.targetClassFile.getName()),
+                        StandardCopyOption.REPLACE_EXISTING);
+
+                File outer = new File(mutant + "outer.txt");
+                Files.copy(new File(FileUtils.tempOuterPath(config.projectPath)).toPath(), outer.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING);
+
             } catch (IOException e) {
-                log.debug(config.projectPath + " ---Fixer: fix fail because of faile passing previously failed test cases! ");
+                e.printStackTrace();
             }
+            if (patches > 10)
+                break;
+
+//            log.debug("Testing.");
+//            try {
+//                String results = ShellUtils.shellRun(Arrays.asList("java -cp "
+//                        + config.projectPath + "/" + config.srcPrefix + StringUtils.join(config.libPaths, System.getProperty("path.separator"))
+//                        + " "+config.classPath), config.projectPath, 2);
+//
+//                if (results.isEmpty()) {
+////					System.err.println(scn.suspiciousJavaFile + "@" + scn.buggyLine);
+////					System.err.println("Bug: " + buggyCode);
+////					System.err.println("Patch: " + patchCode);
+//                    continue;
+//                } else {
+//                    if (results.contains("java.lang.NoClassDefFoundError")) {
+//                        log.debug("java.lang.NoClassDefFoundError");
+//                    }
+//                }
+//                log.debug("successfully testing!");
+//            } catch (IOException e) {
+//                log.debug(config.projectPath + " ---Fixer: fix fail because of faile passing previously failed test cases! ");
+//            }
         }
         try {
             scn.targetJavaFile.delete();
@@ -359,7 +411,16 @@ public class Mutator {
         File javaBackup = new File(FileUtils.tempJavaPath(ClassName, config.projectPath));
         File classBackup = new File(FileUtils.tempClassPath(ClassName, config.projectPath));
         try {
-            if (!targetClassFile.exists()) return null;
+            if (!targetClassFile.exists()) {
+                log.debug("Compiling original .java");
+                try {// Compile original file.
+                    ShellUtils.shellRun(Collections.singletonList("javac -Xlint:unchecked -source " + config.JDK_level + " -target " + config.JDK_level + " -cp "
+                            + config.projectPath + "/" + config.srcPrefix + StringUtils.join(config.libPaths, System.getProperty("path.separator"))
+                            + " -d " + config.projectPath + "/" + config.binPrefix + " " + targetJavaFile.getAbsolutePath()), config.projectPath, 1);
+                } catch (IOException e) {
+                    log.debug(config.projectPath + " ---Fixer: fix fail because of javac exception! ");
+                }
+            }
             if (javaBackup.exists()) javaBackup.delete();
             if (classBackup.exists()) classBackup.delete();
             Files.copy(targetJavaFile.toPath(), javaBackup.toPath());
@@ -383,8 +444,21 @@ public class Mutator {
         return scns;
     }
 
+//    private String analyzeOnePatch(CodeNode scn, Patch patch) {
+//
+//    }
 
-    class CodeNode {
+    public List<String> readOuterStructures(ITree tree, List<String> current) {
+        if (Checker.isMethodDeclaration(tree.getType()))
+            return current;
+        ITree parent = tree.getParent();
+        current.add(ASTNodeMap.map.get(tree.getType()));
+
+        return readOuterStructures(parent, current);
+    }
+
+
+    static class CodeNode {
         public File javaBackup;
         public File classBackup;
         public File targetJavaFile;
@@ -394,10 +468,10 @@ public class Mutator {
         public ITree suspCodeAstNode;
         public String suspCodeStr;
         public String suspiciousJavaFile;
-        public int buggyLine;
+        public int line;
 
         public CodeNode(File javaBackup, File classBackup, File targetJavaFile, File targetClassFile, int startPos,
-                        int endPos, ITree suspCodeAstNode, String suspCodeStr, String suspiciousJavaFile, int buggyLine) {
+                        int endPos, ITree suspCodeAstNode, String suspCodeStr, String suspiciousJavaFile, int line) {
             this.javaBackup = javaBackup;
             this.classBackup = classBackup;
             this.targetJavaFile = targetJavaFile;
@@ -407,7 +481,7 @@ public class Mutator {
             this.suspCodeAstNode = suspCodeAstNode;
             this.suspCodeStr = suspCodeStr;
             this.suspiciousJavaFile = suspiciousJavaFile;
-            this.buggyLine = buggyLine;
+            this.line = line;
         }
 
         @Override
@@ -417,7 +491,7 @@ public class Mutator {
                 CodeNode suspN = (CodeNode) obj;
                 if (startPos != suspN.startPos) return false;
                 if (endPos != suspN.endPos) return false;
-                if (suspiciousJavaFile.equals(suspN.suspiciousJavaFile)) return true;
+                return suspiciousJavaFile.equals(suspN.suspiciousJavaFile);
             }
             return false;
         }

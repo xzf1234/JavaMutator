@@ -32,7 +32,7 @@ public abstract class FixTemplate implements IFixTemplate {
 	private String suspiciousCodeStr;
 	private ITree suspiciousCodeTree;
 	protected int suspCodeStartPos, suspCodeEndPos;
-	private List<Patch> patchesList = new ArrayList<>();
+	private final List<Patch> patchesList = new ArrayList<>();
 	
 	protected Map<String, String> varTypesMap = new HashMap<>();
 	protected List<String> allVarNamesList = new ArrayList<>();

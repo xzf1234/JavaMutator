@@ -26,7 +26,7 @@ public class SuspiciousCodeParser {
 
 	private File javaFile;
 	private CompilationUnit unit = null;
-	private List<Pair<ITree, String>> suspiciousCode = new ArrayList<>();
+	private final List<Pair<ITree, String>> suspiciousCode = new ArrayList<>();
 	
 	public void parseSuspiciousCode(File javaFile, int suspLineNum) {
 		this.javaFile = javaFile;
@@ -48,13 +48,12 @@ public class SuspiciousCodeParser {
 				if (startLine == suspLineNum || endLine == suspLineNum) {
 					if (Checker.isBlock(child.getType())) {
 						identifySuspiciousCodeAst(child, suspLineNum);
-						continue;
 					} else {
 						if (!isRequiredAstNode(child)) {
 							child = traverseParentNode(child);
 							if (child == null) continue;
 						}
-						Pair<ITree, String> pair = new Pair<ITree, String>(child, readSuspiciousCode(child));
+						Pair<ITree, String> pair = new Pair<>(child, readSuspiciousCode(child));
 						if (!suspiciousCode.contains(pair)) {
 							suspiciousCode.add(pair);
 						}

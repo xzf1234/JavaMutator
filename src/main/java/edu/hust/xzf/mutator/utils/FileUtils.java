@@ -60,6 +60,11 @@ public class FileUtils {
 		return Configuration.TEMP_FILES_PATH + identifier + "/" + classname.substring(classname.lastIndexOf(".") + 1) + ".class";
 	}
 
+	public static String tempOuterPath( String identifier) {
+		new File(Configuration.TEMP_FILES_PATH + identifier).mkdirs();
+		return Configuration.TEMP_FILES_PATH + identifier + "/" + Configuration.TEMP_OUTER_PATH + ".txt";
+	}
+
 	public static File copyFile(File src, File dst) {
 		return copyFile(src.getAbsolutePath(), dst.getAbsolutePath());
 	}
