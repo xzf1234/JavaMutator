@@ -34,6 +34,8 @@ public class Mutator {
 
     List<String> outerStructures = new ArrayList<>();
 
+    String javaCode;
+
 
     public Mutator(Configuration config) {
         this.config = config;
@@ -65,7 +67,7 @@ public class Mutator {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
+            javaCode = FileHelper.readFile(scn.javaBackup);
             // Match fix templates for this suspicious code with its context information.
             mutateWithTemplates(scn, distinctContextInfo);
         }
@@ -83,8 +85,6 @@ public class Mutator {
             boolean operator = false;
 
             for (Integer contextInfo : distinctContextInfo) {
-                if (contextInfo != 24)
-                    continue;
                 if (Checker.isCastExpression(contextInfo)) {
                     ft = new ClassCastChecker();
 
@@ -262,33 +262,30 @@ public class Mutator {
             comparablePatches++;
             log.debug("successfully compiling!");
             patches++;
+            int start = countLines(javaCode.substring(0, patch.getBuggyCodeStartPos()))+1;
+            int end = countLines(javaCode.substring(0, patch.getBuggyCodeEndPos()))+1;
 
             try {
-                String mutant = "Mutants/" + config.classPath + "#" + config.lineNumber + "#" + comparablePatches + "/";
+                String mutant = "Mutants/" + config.classPath + "#" + config.lineNumber + "#"
+                        + start + "#" + end + "#"
+                        + comparablePatches + "/";
 
                 File mutantDir = new File(mutant);
                 mutantDir.mkdirs();
                 Path newDir = Paths.get(mutant);
-
-                File patchFile = new File(mutant + "patch.txt");
-                FileWriter fw = new FileWriter(patchFile);
-                if (!patchCode.equals(""))
-                    fw.write(patchCode.substring(1));
-                fw.close();
-
                 Files.move(scn.targetJavaFile.toPath(), newDir.resolve(scn.targetJavaFile.getName()),
                         StandardCopyOption.REPLACE_EXISTING);
                 Files.move(scn.targetClassFile.toPath(), newDir.resolve(scn.targetClassFile.getName()),
                         StandardCopyOption.REPLACE_EXISTING);
 
-                File outer = new File(mutant + "outer.txt");
-                Files.copy(new File(FileUtils.tempOuterPath(config.projectPath)).toPath(), outer.toPath(),
-                        StandardCopyOption.REPLACE_EXISTING);
+//                File outer = new File(mutant + "outer.txt");
+//                Files.copy(new File(FileUtils.tempOuterPath(config.projectPath)).toPath(), outer.toPath(),
+//                        StandardCopyOption.REPLACE_EXISTING);
 
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            if (patches > 10)
+            if (patches >= 3)
                 break;
 
 //            log.debug("Testing.");
@@ -323,8 +320,7 @@ public class Mutator {
     }
 
     private void addPatchCodeToFile(CodeNode scn, Patch patch) {
-        String javaCode = FileHelper.readFile(scn.javaBackup);
-
+        String javaCode = this.javaCode;
         String fixedCodeStr1 = patch.getFixedCodeStr1();
         String fixedCodeStr2 = patch.getFixedCodeStr2();
         int exactBuggyCodeStartPos = patch.getBuggyCodeStartPos();
@@ -447,6 +443,13 @@ public class Mutator {
 //    private String analyzeOnePatch(CodeNode scn, Patch patch) {
 //
 //    }
+
+    private int countLines(String str) {
+        int line = 0;
+        if (str.contains("\n"))
+            line = str.length() - str.replaceAll("\n", "").length();
+        return line;
+    }
 
     public List<String> readOuterStructures(ITree tree, List<String> current) {
         if (Checker.isMethodDeclaration(tree.getType()))
