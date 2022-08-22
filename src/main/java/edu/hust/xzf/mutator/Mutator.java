@@ -262,8 +262,9 @@ public class Mutator {
             comparablePatches++;
             log.debug("successfully compiling!");
             patches++;
-            int start = countLines(javaCode.substring(0, patch.getBuggyCodeStartPos()))+1;
-            int end = countLines(javaCode.substring(0, patch.getBuggyCodeEndPos()))+1;
+            int toAdd = "MOVE-BUGGY-STATEMENT".equals(patch.getFixedCodeStr2()) ? 2 : 1;
+            int start = countLines(javaCode.substring(0, patch.getBuggyCodeStartPos())) + toAdd;
+            int end = countLines(javaCode.substring(0, patch.getBuggyCodeEndPos())) + toAdd;
 
             try {
                 String mutant = "Mutants/" + config.classPath + "#" + config.lineNumber + "#"
