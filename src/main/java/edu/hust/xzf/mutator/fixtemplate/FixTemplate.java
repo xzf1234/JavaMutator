@@ -22,11 +22,12 @@ import edu.hust.xzf.mutator.utils.Checker;
 
 public abstract class FixTemplate implements IFixTemplate {
 	
-	private static Logger log = LoggerFactory.getLogger(FixTemplate.class);
+	private static final Logger log = LoggerFactory.getLogger(FixTemplate.class);
 	
 	protected String sourceCodePath;
 	private File sourceCodeFile;
 	protected String suspJavaFileCode;
+
 	protected Dictionary dic;
 	
 	private String suspiciousCodeStr;
@@ -41,7 +42,7 @@ public abstract class FixTemplate implements IFixTemplate {
 	protected void generatePatch(String fixedCodeStr1) {
 		log.debug("Patch Candidate: " + fixedCodeStr1);
 		// replace buggyCodeStr with fixedCodeStr1;
-		Patch patch = new Patch();
+		Patch patch = new Patch(this.getClass().getSimpleName());
 		patch.setFixedCodeStr1(fixedCodeStr1);
 		this.patchesList.add(patch);
 	}
@@ -49,7 +50,7 @@ public abstract class FixTemplate implements IFixTemplate {
 	protected void generatePatch(int suspCodeEndPos, String fixedCodeStr1) {
 		log.debug("Patch Candidate: " + fixedCodeStr1);
 		// insert fixedCodeStr1 before the buggyCodeStr.
-		Patch patch = new Patch();
+		Patch patch = new Patch(this.getClass().getSimpleName());
 		patch.setBuggyCodeEndPos(suspCodeEndPos);
 		patch.setFixedCodeStr1(fixedCodeStr1);
 		this.patchesList.add(patch);
@@ -60,7 +61,7 @@ public abstract class FixTemplate implements IFixTemplate {
 		// 1. suspCodeEndPos > suspCodeStartPos && suspCodeStartPos == suspNode.suspCodeStartPos Insert a block-held statement to surround the buggy code.
 		// 2. suspCodeEndPos > suspCodeStartPos && suspCodeStartPos < suspNode.suspCodeStartPos && suspCodeStartPos > 0: remove method declaration.
 		// 3. suspCodeEndPos > suspCodeStartPos && "MOVE-BUGGY-STATEMENT".equals(fixedCodeStr2): move statement position.
-		Patch patch = new Patch();
+		Patch patch = new Patch(this.getClass().getSimpleName());
 		patch.setBuggyCodeStartPos(suspCodeStartPos);
 		patch.setBuggyCodeEndPos(suspCodeEndPos);
 		patch.setFixedCodeStr1(fixedCodeStr1);

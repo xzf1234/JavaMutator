@@ -5,10 +5,9 @@ import java.util.Map;
 
 public class ASTNodeMap {
 	
-	public static Map<Integer, String> map;
+	public static final Map<Integer, String> map =  new HashMap<Integer, String>();
 	
 	static {
-		map  = new HashMap<Integer, String>();
 		map.put(-3, "Instanceof");
 		map.put(-2, "New");
 		map.put(-1, "Operator");

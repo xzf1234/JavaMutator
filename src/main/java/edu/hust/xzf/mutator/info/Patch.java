@@ -7,7 +7,9 @@ package edu.hust.xzf.mutator.info;
  *
  */
 public class Patch {
-	
+
+	private String fixPattern;
+
 	private String buggyCodeStr = "";
 	private String fixedCodeStr1 = "";
 	private String fixedCodeStr2 = null;
@@ -68,9 +70,29 @@ public class Patch {
 		this.buggyCodeEndPos = buggyCodeEndPos;
 	}
 
+	public String getFixPattern() {
+		return fixPattern;
+	}
+
+	public void setFixPattern(String fixPattern) {
+		this.fixPattern = fixPattern;
+	}
+
+	public String getBuggyFileName() {
+		return buggyFileName;
+	}
+
+	public void setBuggyFileName(String buggyFileName) {
+		this.buggyFileName = buggyFileName;
+	}
+
 	@Override
 	public String toString() {
 		return this.fixedCodeStr1 + "\n" + this.fixedCodeStr2;
+	}
+
+	public Patch(String fixPattern){
+		this.fixPattern = fixPattern;
 	}
 
 	@Override

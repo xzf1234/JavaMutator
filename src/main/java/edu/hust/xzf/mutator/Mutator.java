@@ -26,14 +26,12 @@ import java.util.Collections;
 import java.util.List;
 
 public class Mutator {
-    private static Logger log = LoggerFactory.getLogger(Mutator.class);
+    private static final Logger log = LoggerFactory.getLogger(Mutator.class);
+
     protected Dictionary dic = null;
     protected int patchId = 0;
     protected int comparablePatches = 0;
     Configuration config;
-
-    List<String> outerStructures = new ArrayList<>();
-
     String javaCode;
 
 
@@ -48,7 +46,7 @@ public class Mutator {
         for (CodeNode scn : scns) {
             if (triedSuspNode.contains(scn)) continue;
             triedSuspNode.add(scn);
-            List<Integer> contextInfoList = readAllNodeTypes(scn.suspCodeAstNode);
+            List<Integer> contextInfoList = readAllNodeTypes(scn.codeAstNode);
             List<Integer> distinctContextInfo = new ArrayList<>();
             for (Integer contInfo : contextInfoList) {
                 if (!distinctContextInfo.contains(contInfo) && !Checker.isBlock(contInfo)) {
@@ -61,7 +59,7 @@ public class Mutator {
                 File outerStructure = new File(FileUtils.tempOuterPath(config.projectPath));
                 FileWriter fw = new FileWriter(outerStructure);
                 List<String> outers = new ArrayList<>();
-                List<String> outer = readOuterStructures(scn.suspCodeAstNode, outers);
+                List<String> outer = readOuterStructures(scn.codeAstNode, outers);
                 fw.write(Collections.singletonList(outer).toString());
                 fw.close();
             } catch (IOException e) {
@@ -78,7 +76,7 @@ public class Mutator {
         // generate patches with fix templates of TBar.
         FixTemplate ft = null;
 
-        if (!Checker.isMethodDeclaration(scn.suspCodeAstNode.getType())) {
+        if (!Checker.isMethodDeclaration(scn.codeAstNode.getType())) {
             boolean nullChecked = false;
             boolean typeChanged = false;
             boolean methodChanged = false;
@@ -101,7 +99,7 @@ public class Mutator {
                         ft = new MethodInvocationMutator();
                     }
                 } else if (Checker.isIfStatement(contextInfo) || Checker.isDoStatement(contextInfo) || Checker.isWhileStatement(contextInfo)) {
-                    if (Checker.isInfixExpression(scn.suspCodeAstNode.getChild(0).getType()) && !operator) {
+                    if (Checker.isInfixExpression(scn.codeAstNode.getChild(0).getType()) && !operator) {
                         operator = true;
                         ft = new OperatorMutator(0);
                         generateAndValidatePatches(ft, scn);
@@ -152,7 +150,7 @@ public class Mutator {
                 } else if (Checker.isArrayAccess(contextInfo)) {
                     ft = new RangeChecker(true);
                 } else if (Checker.isReturnStatement(contextInfo)) {
-                    String returnType = ContextReader.readMethodReturnType(scn.suspCodeAstNode);
+                    String returnType = ContextReader.readMethodReturnType(scn.codeAstNode);
                     if ("boolean".equalsIgnoreCase(returnType)) {
                         ft = new ConditionalExpressionMutator(2);
                     } else {
@@ -196,8 +194,8 @@ public class Mutator {
 
 
     protected void generateAndValidatePatches(FixTemplate ft, CodeNode scn) {
-        ft.setSuspiciousCodeStr(scn.suspCodeStr);
-        ft.setSuspiciousCodeTree(scn.suspCodeAstNode);
+        ft.setSuspiciousCodeStr(scn.codeStr);
+        ft.setSuspiciousCodeTree(scn.codeAstNode);
         if (scn.javaBackup == null) ft.setSourceCodePath(config.projectPath + config.srcPrefix);
         else ft.setSourceCodePath(config.projectPath + config.srcPrefix, scn.javaBackup);
         ft.setDictionary(dic);
@@ -268,8 +266,7 @@ public class Mutator {
 
             try {
                 String mutant = "Mutants/" + config.classPath + "#" + config.lineNumber + "#"
-                        + start + "#" + end + "#"
-                        + comparablePatches + "/";
+                        + start + "#" + end + "#" + patch.getFixPattern() + "#"+ comparablePatches + "/";
 
                 File mutantDir = new File(mutant);
                 mutantDir.mkdirs();
@@ -337,7 +334,7 @@ public class Mutator {
                 needBuggyCode = true;
                 if (exactBuggyCodeStartPos == 0) {
                     // Insert the missing override method, the buggy node is TypeDeclaration.
-                    int pos = scn.suspCodeAstNode.getPos() + scn.suspCodeAstNode.getLength() - 1;
+                    int pos = scn.codeAstNode.getPos() + scn.codeAstNode.getLength() - 1;
                     for (int i = pos; i >= 0; i--) {
                         if (javaCode.charAt(i) == '}') {
                             exactBuggyCodeStartPos = i;
@@ -469,21 +466,21 @@ public class Mutator {
         public File targetClassFile;
         public int startPos;
         public int endPos;
-        public ITree suspCodeAstNode;
-        public String suspCodeStr;
+        public ITree codeAstNode;
+        public String codeStr;
         public String suspiciousJavaFile;
         public int line;
 
         public CodeNode(File javaBackup, File classBackup, File targetJavaFile, File targetClassFile, int startPos,
-                        int endPos, ITree suspCodeAstNode, String suspCodeStr, String suspiciousJavaFile, int line) {
+                        int endPos, ITree codeAstNode, String codeStr, String suspiciousJavaFile, int line) {
             this.javaBackup = javaBackup;
             this.classBackup = classBackup;
             this.targetJavaFile = targetJavaFile;
             this.targetClassFile = targetClassFile;
             this.startPos = startPos;
             this.endPos = endPos;
-            this.suspCodeAstNode = suspCodeAstNode;
-            this.suspCodeStr = suspCodeStr;
+            this.codeAstNode = codeAstNode;
+            this.codeStr = codeStr;
             this.suspiciousJavaFile = suspiciousJavaFile;
             this.line = line;
         }
@@ -492,10 +489,10 @@ public class Mutator {
         public boolean equals(Object obj) {
             if (obj == null) return false;
             if (obj instanceof CodeNode) {
-                CodeNode suspN = (CodeNode) obj;
-                if (startPos != suspN.startPos) return false;
-                if (endPos != suspN.endPos) return false;
-                return suspiciousJavaFile.equals(suspN.suspiciousJavaFile);
+                CodeNode node = (CodeNode) obj;
+                if (startPos != node.startPos) return false;
+                if (endPos != node.endPos) return false;
+                return suspiciousJavaFile.equals(node.suspiciousJavaFile);
             }
             return false;
         }
