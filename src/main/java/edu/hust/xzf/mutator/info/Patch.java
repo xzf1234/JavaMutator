@@ -106,9 +106,8 @@ public class Patch {
 			if (buggyCodeEndPos != p.buggyCodeEndPos) return false;
 			if (!fixedCodeStr1.equals(p.fixedCodeStr1)) return false;
 			if (fixedCodeStr2 == null) {
-				if (p.fixedCodeStr2 != null) return false;
-			} else if (!fixedCodeStr2.equals(p.fixedCodeStr2)) return false;
-			return true;
+				return p.fixedCodeStr2 == null;
+			} else return fixedCodeStr2.equals(p.fixedCodeStr2);
 		} else return false;
 	}
 }

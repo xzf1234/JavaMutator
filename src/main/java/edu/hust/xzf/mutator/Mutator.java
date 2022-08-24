@@ -21,7 +21,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -33,6 +32,8 @@ public class Mutator {
     protected int comparablePatches = 0;
     Configuration config;
     String javaCode;
+
+    String compileCmd;
 
 
     public Mutator(Configuration config) {
@@ -246,9 +247,12 @@ public class Mutator {
 
             log.debug("Compiling");
             try {// Compile patched file.
-                ShellUtils.shellRun(Collections.singletonList("javac -Xlint:unchecked -source " + config.JDK_level + " -target " + config.JDK_level + " -cp "
-                        + config.projectPath + "/" + config.srcPrefix + StringUtils.join(config.libPaths, System.getProperty("path.separator"))
-                        + " -d " + config.projectPath + "/" + config.binPrefix + " " + scn.targetJavaFile.getAbsolutePath()), config.projectPath, 1);
+//                List<String> asList = Collections.singletonList("javac -Xlint:unchecked -source " + config.JDK_level + " -target " + config.JDK_level + " -cp "
+//                        + config.projectPath + "/" + config.srcPrefix + StringUtils.join(config.libPaths, System.getProperty("path.separator"))
+//                        + " -d " + config.projectPath + "/" + config.binPrefix + " " + scn.targetJavaFile.getAbsolutePath());
+//                log.debug("compile cmd is " + asList);
+//                ShellUtils.shellRun(asList, config.projectPath, 1);
+                ShellUtils.getShellOut(Runtime.getRuntime().exec(compileCmd), 1);
             } catch (IOException e) {
                 log.debug(config.projectPath + " ---Fixer: fix fail because of javac exception! ");
                 continue;
@@ -266,7 +270,7 @@ public class Mutator {
 
             try {
                 String mutant = "Mutants/" + config.classPath + "#" + config.lineNumber + "#"
-                        + start + "#" + end + "#" + patch.getFixPattern() + "#"+ comparablePatches + "/";
+                        + start + "#" + end + "#" + patch.getFixPattern() + "#" + comparablePatches + "/";
 
                 File mutantDir = new File(mutant);
                 mutantDir.mkdirs();
@@ -399,18 +403,25 @@ public class Mutator {
             return null;
         }
 
+
         File targetJavaFile = new File(config.javaFilePath);
         File targetClassFile = new File(config.javaFilePath.replace(".java", ".class"));
         String ClassName = targetJavaFile.getName().replace(".java", "");
         File javaBackup = new File(FileUtils.tempJavaPath(ClassName, config.projectPath));
         File classBackup = new File(FileUtils.tempClassPath(ClassName, config.projectPath));
+
         try {
+            compileCmd = ShellUtils.genCompileCmd(Collections.singletonList("javac -Xlint:unchecked -source " + config.JDK_level + " -target " + config.JDK_level + " -cp "
+                    + config.projectPath + "/" + config.srcPrefix + StringUtils.join(config.libPaths, System.getProperty("path.separator"))
+                    + " -d " + config.projectPath + "/" + config.binPrefix + " " + targetJavaFile.getAbsolutePath()),config.projectPath);
+
             if (!targetClassFile.exists()) {
                 log.debug("Compiling original .java");
                 try {// Compile original file.
-                    ShellUtils.shellRun(Collections.singletonList("javac -Xlint:unchecked -source " + config.JDK_level + " -target " + config.JDK_level + " -cp "
-                            + config.projectPath + "/" + config.srcPrefix + StringUtils.join(config.libPaths, System.getProperty("path.separator"))
-                            + " -d " + config.projectPath + "/" + config.binPrefix + " " + targetJavaFile.getAbsolutePath()), config.projectPath, 1);
+                    ShellUtils.getShellOut(Runtime.getRuntime().exec(compileCmd), 1);
+//                    ShellUtils.shellRun(Collections.singletonList("javac -Xlint:unchecked -source " + config.JDK_level + " -target " + config.JDK_level + " -cp "
+//                            + config.projectPath + "/" + config.srcPrefix + StringUtils.join(config.libPaths, System.getProperty("path.separator"))
+//                            + " -d " + config.projectPath + "/" + config.binPrefix + " " + targetJavaFile.getAbsolutePath()), config.projectPath, 1);
                 } catch (IOException e) {
                     log.debug(config.projectPath + " ---Fixer: fix fail because of javac exception! ");
                 }
@@ -419,7 +430,8 @@ public class Mutator {
             if (classBackup.exists()) classBackup.delete();
             Files.copy(targetJavaFile.toPath(), javaBackup.toPath());
             Files.copy(targetClassFile.toPath(), classBackup.toPath());
-        } catch (IOException e) {
+
+                    } catch (IOException e) {
             e.printStackTrace();
         }
 
